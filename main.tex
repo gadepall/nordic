@@ -1,0 +1,459 @@
+\documentclass[conference]{IEEEtran}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{url}
+\usepackage{circuitikz}
+\usepackage{booktabs}
+\usepackage{array}
+\lstset{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue}\bfseries,
+  commentstyle=\color{green!40!black},
+  stringstyle=\color{red},
+  numbers=none,                     % no numbers
+  numberstyle=\scriptsize\ttfamily, % more readable numbers
+  numbersep=8pt,                    % add spacing from code
+  xleftmargin=1.5em,                % indent code so numbers don’t overlap
+  frame=single,
+  breaklines=true,
+  breakatwhitespace=true,
+  tabsize=2,
+  showstringspaces=false,
+  captionpos=b,
+  keepspaces=true                   % preserve spacing properly
+}
+
+\title{Implementation of Cross-Platform Data Transmission Systems: A Comparative Study of Wired Serial and Bluetooth Low Energy (BLE) Bridging using nRF5340}
+
+\author{
+\IEEEauthorblockN{Bhargav K, Harsha B J}
+\IEEEauthorblockA{
+Department of Electrical Engineering\\
+IIT Hyderabad\\
+Email: ee25btech11013@iith.ac.in, ee25btech11026@iith.ac.in}
+}
+
+\begin{document}
+
+\maketitle
+\begin{abstract}
+This paper presents the design and implementation of a cross-platform bidirectional data transfer system, enabling seamless telemetry and file exchange between a Linux host and an Android mobile environment. The study contrasts a baseline wired serial connection against a wireless embedded bridge utilizing the Nordic Semiconductor nRF5340 SoC.
+
+In the wireless implementation, the nRF5340 functions as a protocol converter, bridging USB-CDC (ACM) serial data to Bluetooth Low Energy (BLE) packets via the Nordic UART Service (NUS). To mitigate data corruption caused by control character interpretation in the UART stack, a Base64 encoding scheme was integrated, successfully enabling the transmission of binary assets (images, PDFs) with 100\% data integrity.
+\end{abstract}
+\section{Hardware Requirements}
+\begin{itemize}
+    \item Development Board: Nordic Semiconductor nRF5340 DK.
+    \item Smartphone: Android device with Termux, nRF Connect for Mobile and Serial Bluetooth Terminal App.
+    \item PC: Linux machine
+    
+\end{itemize}
+
+\section{Software and Toolchains Installations}
+\subsection{1. Update \& Install System Dependencies}
+First, update the package manager and install the core dependencies required by the Zephyr build system (CMake, Ninja, Python, etc.).
+
+\begin{lstlisting}[language=bash]
+sudo apt update
+sudo apt upgrade -y
+sudo apt install --no-install-recommends -y \
+    git cmake ninja-build gperf \
+    ccache dfu-util device-tree-compiler wget \
+    python3-dev python3-pip python3-setuptools python3-tk python3-wheel xz-utils file \
+    make gcc gcc-multilib g++-multilib libsdl2-dev
+\end{lstlisting}
+
+\subsection{2. Install West (Zephyr Build Tool)}
+Install \texttt{west}, the command-line tool used to manage the project and build system.
+
+\begin{lstlisting}[language=bash]
+pip3 install --user -U west
+# Ensure ~/.local/bin is in your PATH if west is not found
+export PATH=$PATH:~/.local/bin
+\end{lstlisting}
+
+\subsection{3. Initialize nRF Connect SDK (v3.2.2)}
+Create a workspace directory and initialize the specific SDK version used for this project.
+
+\begin{lstlisting}[language=bash]
+# 1. Create a folder for the SDK
+mkdir ~/ncs
+cd ~/ncs
+
+# 2. Initialize the SDK pointing to version v3.2.2
+west init -m https://github.com/nrfconnect/sdk-nrf --mr v3.2.2
+
+# 3. Download the code
+west update
+
+# 4. Export CMake package for Zephyr
+west zephyr-export
+\end{lstlisting}
+
+\subsection{4. Install Python Dependencies}
+Install the specific Python requirements for the Zephyr kernel, the nRF SDK, and the bootloader.
+
+\begin{lstlisting}[language=bash]
+pip3 install --user -r zephyr/scripts/requirements.txt
+pip3 install --user -r nrf/scripts/requirements.txt
+pip3 install --user -r bootloader/mcuboot/scripts/requirements.txt
+\end{lstlisting}
+
+\subsection{5. Install the Zephyr SDK Toolchain}
+Download and install the cross-compiler toolchain (Zephyr SDK 0.16.1) required to compile code for the nRF5340.
+
+\begin{lstlisting}[language=bash]
+# 1. Download the Zephyr SDK Bundle
+cd ~
+wget https://github.com/zephyrproject-rtos/sdk-ng/
+releases/download/v0.16.1/zephyr-sdk-0.16.1_linux-x86_64.tar.xz
+
+# 2. Extract the archive
+tar xvf zephyr-sdk-0.16.1_linux-x86_64.tar.xz
+
+# 3. Run the setup script
+cd zephyr-sdk-0.16.1
+./setup.sh
+\end{lstlisting}
+
+\subsection{6. Install nRF Command Line Tools}
+Finally, install the J-Link drivers and \texttt{nrfjprog} to enable flashing the board over USB.
+
+\begin{lstlisting}[language=bash]
+# Navigate to the download directory
+cd ~/Downloads
+
+# Install the .deb package (replace filename with actual version)
+sudo dpkg -i nrf-command-line-tools*.deb
+
+# Fix any missing dependencies
+sudo apt install -f
+\end{lstlisting}
+
+\subsection{Verification}
+Verify the installation by checking the versions of the flashing and build tools.
+
+\begin{lstlisting}[language=bash]
+nrfjprog --version
+west --version
+\end{lstlisting}
+
+\section{Project Execution Procedure}
+
+This section details the procedure to compile, flash, and test the \texttt{peripheral\_uart} sample application using the command line interface.
+
+\subsection{1. Workspace Initialization}
+Before building, ensure the workspace is correctly set up. If you have not created a specific project folder yet, navigate to your NCS root directory.
+
+\begin{lstlisting}[language=bash]
+cd ~/ncs
+# Ensure environment variables are set (optional but recommended)
+source zephyr/zephyr-env.sh
+\end{lstlisting}
+
+\subsection{2. Building the Firmware}
+Use the \texttt{west build} command to compile the sample code. We target the \texttt{peripheral\_uart} sample located in the Bluetooth folder.
+
+\textbf{Target Board:} \texttt{nrf5340dk/nrf5340/cpuapp} (Application Core).
+
+\begin{lstlisting}[language=bash]
+# Navigate to the main folder
+cd ~/ncs
+
+# Build the peripheral_uart sample
+west build -b nrf5340dk/nrf5340/cpuapp nrf/samples/bluetooth/peripheral_uart
+\end{lstlisting}
+
+\noindent \textbf{Note:} If the build fails due to cached configurations, append the pristine flag \texttt{-p} to clean the build directory:
+\begin{lstlisting}[language=bash]
+west build -p -b nrf5340dk/nrf5340/cpuapp nrf/samples/bluetooth/peripheral_uart
+\end{lstlisting}
+
+\subsection{3. Flashing the Board}
+Once the build completes successfully, flash the binary to the nRF5340 development kit.
+
+\begin{enumerate}
+    \item Connect the nRF5340 DK to the PC via thImplementation of Cross-Platform Data Transmission Systems: A Comparative Study of Wired Serial and Bluetooth Low Energy (BLE) Bridging using nRF5340e \textbf{IMCU USB} port (Interface MCU).
+    \item Run the flash command:
+\end{enumerate}
+
+\begin{lstlisting}[language=bash]
+west flash
+\end{lstlisting}
+
+\noindent If successful, the terminal will display \texttt{Flashing completed}.
+
+\subsection{4. Testing Data Transfer}
+To verify functionality, we establish a connection between the PC terminal and a smartphone.
+
+\subsubsection{A. PC Setup (Receiver)}
+Open a serial terminal to view data sent from the phone.
+\begin{itemize}
+    \item \textbf{Command:} Use \texttt{screen} or \texttt{minicom} to listen to the board's serial output.
+    \item \textbf{Baud Rate:} 115200.
+\end{itemize}
+
+\begin{lstlisting}[language=bash]
+# List available USB devices to find the port (e.g., /dev/ttyACM0)
+ls /dev/ttyACM*
+
+# Open the serial connection
+sudo screen /dev/ttyACM0 115200
+\end{lstlisting}
+
+\subsubsection{B. Smartphone Setup (Sender)}
+\begin{enumerate}
+    \item Open the \textbf{nRF Connect for Mobile} app on Android.
+    \item Scan for devices and locate \textbf{Nordic\_UART\_Service}.
+    \item Tap \textbf{Connect}.
+    \item Navigate to the \textbf{UART} tab.
+    \item Type a text message (e.g., ``Hello Linux'') and send it.
+\end{enumerate}
+
+\subsubsection{C. Result}
+The text typed on the smartphone should immediately appear in the Linux terminal window. Conversely, typing in the Linux terminal will send text to the smartphone app logs.
+
+
+
+\section{File Transfer : Linux Terminal \& Android Serial App}
+
+This section details the procedure to verify bidirectional text transfer using a Linux terminal on the PC side and the \textbf{Serial Bluetooth Terminal} app on an Android device.
+
+\subsection{1. Linux Setup (Receiver/Sender)}
+On the Ubuntu machine, we interact with the nRF5340 board through its virtual serial port.
+
+\begin{enumerate}
+    \item Connect the nRF5340 DK to the PC via the \textbf{IMCU USB} port.
+    \item Open a terminal window and list the USB devices to identify the board (usually \texttt{ttyACM0} or \texttt{ttyACM1}).
+\begin{lstlisting}[language=bash]
+ls /dev/ttyACM*
+\end{lstlisting}
+    \item Open the serial connection using \texttt{screen} or \texttt{minicom} with a baud rate of \textbf{115200}.
+\begin{lstlisting}[language=bash]
+# Replace ttyACM0 with your actual port
+sudo screen /dev/ttyACM0 115200
+\end{lstlisting}
+    \item The terminal screen will clear and wait for input. (Press \textbf{Reset} on the board if you want to see the boot log).
+\end{enumerate}
+
+\subsection{2. Android Setup (Serial Bluetooth Terminal)}
+We use a dedicated terminal app to act as the Bluetooth Central device.
+
+\begin{enumerate}
+    \item \textbf{Install App:} Download and install \textbf{Serial Bluetooth Terminal} (by Kai Morich) from the Google Play Store.
+    \item \textbf{Open App:} Launch the application.
+    \item \textbf{Scan:}
+    \begin{itemize}
+        \item Tap the menu (three lines) in the top-left corner.
+        \item Select \textbf{Devices}.
+        \item Tap the \textbf{Bluetooth LE} tab (important: do not use the Classic Bluetooth tab).
+        \item Tap \textbf{Scan} at the top.
+    \end{itemize}
+    \item \textbf{Connect:} Locate the device named \textbf{Nordic\_UART\_Service} in the list and tap it to connect. The terminal screen should show ``Connected''.
+\end{enumerate}
+
+\subsection{3. Verifying File Transfer (Text Streaming)}
+
+This section details the procedure to transfer entire text files between the Android device and the Linux machine using the Nordic UART Service.
+
+\subsubsection{Smartphone to Linux (Sending a File)}
+To send a text file stored on the phone to the Linux terminal:
+\begin{enumerate}
+    \item Ensure the devices are connected via the \textbf{Serial Bluetooth Terminal} app.
+    \item Tap the \textbf{Menu} icon (three lines) in the top-left corner or the \textbf{Upload/Folder} icon (if available on the toolbar).
+    \item Select \textbf{Send File}.
+    \item Browse and select a \texttt{.txt} file from your phone's storage.
+    \item \textbf{Result:} The content of the file will stream immediately into the open \texttt{screen} session on your Linux terminal. This can be saved as a file in the PC.
+\end{enumerate}
+
+\subsubsection{Linux to Smartphone (Sending a File)}
+To send a text file from the Linux machine to the phone, we cannot just type in the terminal. We must pipe the file directly to the device port.
+
+\begin{enumerate}
+    \item Open a \textbf{new} terminal window (keep the \texttt{screen} session open in the first window to monitor the connection).
+    \item Create a dummy text file to send:
+\begin{lstlisting}[language=bash]
+echo "This is a test file sent from Linux." > test_file.txt
+\end{lstlisting}
+    \item Use the \texttt{cat} command to redirect the file into the USB serial port:
+\begin{lstlisting}[language=bash]
+# Replace ttyACM0 with your actual port
+sudo sh -c 'cat test_file.txt > /dev/ttyACM0'
+\end{lstlisting}
+    \item \textbf{Result:} The content of \texttt{test\_file.txt} will appear in the \textbf{Serial Bluetooth Terminal} app on your phone (usually in blue).
+\end{enumerate}
+
+\section{Transferring Binary Files (Images/PDFs) via Base64}
+The Nordic UART Service (NUS) is designed for character-based data streams. Attempting to send raw binary files (e.g., \texttt{.jpg}, \texttt{.png}, \texttt{.pdf}) directly will result in data corruption due to control characters and null bytes. To transfer these files, we must encode them into a text-safe format using Base64.
+
+\subsection{1. Concept Overview}
+The process involves three stages:
+\begin{enumerate}
+    \item \textbf{Sender (Linux):} Encodes the binary file into a Base64 text string.
+    \item \textbf{Transmission:} The text string is sent over the USB-to-Bluetooth bridge.
+    \item \textbf{Receiver (Termux):} Receives the text string and decodes it back into the original binary format.
+\end{enumerate}
+
+\subsection{2. Procedure: Linux to Android (Termux)}
+
+\subsubsection{Step A: Prepare the Receiver (Termux)}
+On the Android device, open Termux and set up a listener that will dump the incoming data into a temporary file.
+
+\begin{lstlisting}[language=bash]
+# 1. Open a listening connection (via the Bridge App on port 9000)
+# 2. Redirect output to a file named 'received_data.b64'
+nc 127.0.0.1 9000 > received_data.b64
+\end{lstlisting}
+\textit{Termux is now waiting for data...}
+
+\subsubsection{Step B: Send the File from Linux}
+On the Linux laptop, we use the \texttt{base64} command to encode the file and pipe it immediately to the USB port.
+
+\begin{lstlisting}[language=bash]
+# Syntax: base64 <input_file> > <device_port>
+
+# Example: Sending an image named 'photo.jpg'
+base64 photo.jpg > /dev/ttyACM0
+\end{lstlisting}
+\textit{The transfer will take a few seconds depending on the file size. Once the command finishes on Linux, close the connection on Termux (Ctrl+C).}
+
+\subsubsection{Step C: Decode the File on Termux}
+Now that we have the Base64 text file on the phone, we must decode it back to its original binary format.
+
+\begin{lstlisting}[language=bash]
+# 1. Decode the text file back to binary
+base64 -d received_data.b64 > restored_photo.jpg
+
+# 2. Verify the file exists and has size
+ls -lh restored_photo.jpg
+\end{lstlisting}
+
+\subsection{3. Procedure: Android (Termux) to Linux}
+
+\subsubsection{Step A: Prepare the Receiver (Linux)}
+On the Linux laptop, open a terminal to listen for the incoming stream.
+
+\begin{lstlisting}[language=bash]
+# Read from the USB port and save to a file
+cat /dev/ttyACM0 > received_from_phone.b64
+\end{lstlisting}
+
+\subsubsection{Step B: Send the File from Termux}
+In Termux, locate the file you want to send and pipe it to the bridge connection.
+
+\begin{lstlisting}[language=bash]
+# Encode a PDF file and send it to the bridge port (9000)
+base64 document.pdf | nc 127.0.0.1 9000
+\end{lstlisting}
+
+\subsubsection{Step C: Decode on Linux}
+Once the transfer stops, press \textbf{Ctrl+C} on the Linux terminal to stop recording. Then decode the file.
+
+\begin{lstlisting}[language=bash]
+# Decode back to PDF
+base64 -d received_from_phone.b64 > restored_document.pdf
+
+# Open the file to verify
+xdg-open restored_document.pdf
+\end{lstlisting}
+
+\subsection{4. Technical Constraints}
+\begin{itemize}
+    \item \textbf{Overhead:} Base64 encoding increases the file size by approximately 33\%.
+    \item \textbf{Speed:} Bluetooth Low Energy (BLE) has a limited bandwidth (approx. 10-20 kB/s for NUS). Transferring large files (e.g., $>$ 1MB) may take several minutes.
+    \item \textbf{Buffer:} Ensure the receiving device does not sleep during transfer, as BLE connections may drop if the radio is idle for too long.
+\end{itemize}
+
+
+\section{File Transfer between 2 devices via bluetooth without using nRF5340 BLE}
+Switch on bluetooth on both devices.
+\subsection{Installating the Packages}
+\begin{lstlisting}[language=bash]
+sudo apt update
+sudo apt install bluez bluetooth bluetooth-obex obexftp gnome-bluetooth
+sudo systemctl start bluetooth
+\end{lstlisting}
+\subsection{Connecting the sender to the receiver}
+On the sender device:
+\begin{lstlisting}[language=bash]
+bluetoothctl scan on
+\end{lstlisting}
+Note the MAC address: AA:BB:CC:DD:EE:FF
+\begin{lstlisting}[language=bash]
+bluetoothctl
+pair AA:BB:CC:DD:EE:FF
+trust AA:BB:CC:DD:EE:FF
+connect AA:BB:CC:DD:EE:FF
+exit
+\end{lstlisting}
+
+\begin{lstlisting}[language=bash]
+bluetooth-sendto --device=AA:BB:CC:DD:EE:FF /path/to/file1.txt /path/to/file2.jpg /path/to/file3.png
+\end{lstlisting}
+
+To automate this process: \\
+Save the following as 
+bt-multi-send.sh
+\begin{lstlisting}[language=bash]
+#!/bin/bash
+DEVICE="AA:BB:CC:DD:EE:FF"  # Replace with MAC Address
+DIR_PATH="$1"  # Pass dir as arg, e.g., ./bt-multi-send.sh /path/to/files
+
+if [ -z "$DIR_PATH" ]; then
+  echo "Usage: $0 <directory>"
+  exit 1
+fi
+
+# Ensure paired
+bluetoothctl connect $DEVICE > /dev/null 2>&1
+
+for file in "$DIR_PATH"/*; do
+  if [ -f "$file" ]; then
+    echo "Sending $file..."
+    bluetooth-sendto --device=$DEVICE "$file"
+  fi
+done
+
+\end{lstlisting}
+
+Make it executable:
+\begin{lstlisting}[language=bash]
+chmod +x bt-multi-send.sh
+\end{lstlisting}
+
+Run this command:
+\begin{lstlisting}[language=bash]
+./bt-multi-send.sh /path/to/files
+\end{lstlisting}
+
+\section{Industry Applications of Nordic SoC's}
+
+Nordic Semiconductor SoCs are widely adopted in commercial IoT sectors. Notable examples include:
+
+\begin{itemize}
+    \item \textbf{Wearables:} The \textit{Ultrahuman Ring Air} and \textit{Dayton Smartwatch} utilize the nRF52 series for biometric tracking (ECG, Sleep Index).
+    \item \textbf{Medical Healthcare:} Devices such as \textit{PulseTape} utilize Nordic chips for continuous ECG monitoring, prioritizing low power consumption for extended battery life.
+    \item \textbf{Smart Home:} Significantly, the \textit{eCozy 2.0 Smart Thermostat} employs the \textbf{nRF5340}—the exact SoC utilized in this project—to handle complex connectivity protocols like Matter and Bluetooth Mesh.
+\end{itemize}
+\section{Conclusion}
+
+This project successfully demonstrated the implementation of a robust, bidirectional wireless data transfer system utilizing the Nordic Semiconductor nRF5340 System-on-Chip. By configuring the nRF5340 as a bridge between a USB-CDC (Serial) interface and the Bluetooth Low Energy (BLE) Nordic UART Service (NUS), we established a seamless communication link between a Linux-based PC and an Android mobile environment and between 2 Linux-based PC.
+
+
+\begin{itemize}
+    \item \textbf{Firmware Implementation:} The firmware was successfully built and flashed using the Zephyr RTOS command-line toolchain (\texttt{west}), demonstrating a professional, reproducible development workflow without reliance on heavy GUI IDEs.
+    \item \textbf{Data Integrity:} While the UART protocol is inherently text-based, we successfully implemented a Base64 encoding strategy. This enabled the error-free transmission of complex binary files (images, PDFs) over the link, proving the system's versatility beyond simple telemetry.
+\end{itemize}
+
+\subsection{Final Verdict}
+The comparative analysis between direct wired connections and the nRF5340-based solution highlights the flexibility of BLE for embedded applications. While wired connections offer higher raw throughput, the nRF5340 implementation provides a reliable, low-power wireless alternative suitable for IoT remote debugging, field telemetry, and file exchange in environments where physical cabling is impractical. The system stands as a functional proof-of-concept for modern embedded wireless bridging.
+
+
+\end{document}
+
