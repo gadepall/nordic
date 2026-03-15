@@ -1,0 +1,43 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "/home/bhargav/ncs/v3.2.2/nrf/samples/bluetooth/peripheral_hids_keyboard/build/_sysbuild/sysbuild/images/CMakeFiles/peripheral_hids_keyboard"
+		},
+		{
+			"file" : "/home/bhargav/ncs/v3.2.2/nrf/samples/bluetooth/peripheral_hids_keyboard/build/_sysbuild/sysbuild/images/CMakeFiles/peripheral_hids_keyboard.rule"
+		},
+		{
+			"file" : "/home/bhargav/ncs/v3.2.2/nrf/samples/bluetooth/peripheral_hids_keyboard/build/_sysbuild/sysbuild/images/CMakeFiles/peripheral_hids_keyboard-complete.rule"
+		},
+		{
+			"file" : "/home/bhargav/ncs/v3.2.2/nrf/samples/bluetooth/peripheral_hids_keyboard/build/_sysbuild/sysbuild/images/peripheral_hids_keyboard-prefix/src/peripheral_hids_keyboard-stamp/peripheral_hids_keyboard-build.rule"
+		},
+		{
+			"file" : "/home/bhargav/ncs/v3.2.2/nrf/samples/bluetooth/peripheral_hids_keyboard/build/_sysbuild/sysbuild/images/peripheral_hids_keyboard-prefix/src/peripheral_hids_keyboard-stamp/peripheral_hids_keyboard-configure.rule"
+		},
+		{
+			"file" : "/home/bhargav/ncs/v3.2.2/nrf/samples/bluetooth/peripheral_hids_keyboard/build/_sysbuild/sysbuild/images/peripheral_hids_keyboard-prefix/src/peripheral_hids_keyboard-stamp/peripheral_hids_keyboard-download.rule"
+		},
+		{
+			"file" : "/home/bhargav/ncs/v3.2.2/nrf/samples/bluetooth/peripheral_hids_keyboard/build/_sysbuild/sysbuild/images/peripheral_hids_keyboard-prefix/src/peripheral_hids_keyboard-stamp/peripheral_hids_keyboard-install.rule"
+		},
+		{
+			"file" : "/home/bhargav/ncs/v3.2.2/nrf/samples/bluetooth/peripheral_hids_keyboard/build/_sysbuild/sysbuild/images/peripheral_hids_keyboard-prefix/src/peripheral_hids_keyboard-stamp/peripheral_hids_keyboard-mkdir.rule"
+		},
+		{
+			"file" : "/home/bhargav/ncs/v3.2.2/nrf/samples/bluetooth/peripheral_hids_keyboard/build/_sysbuild/sysbuild/images/peripheral_hids_keyboard-prefix/src/peripheral_hids_keyboard-stamp/peripheral_hids_keyboard-patch.rule"
+		},
+		{
+			"file" : "/home/bhargav/ncs/v3.2.2/nrf/samples/bluetooth/peripheral_hids_keyboard/build/_sysbuild/sysbuild/images/peripheral_hids_keyboard-prefix/src/peripheral_hids_keyboard-stamp/peripheral_hids_keyboard-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"peripheral_hids_keyboard"
+		],
+		"name" : "peripheral_hids_keyboard"
+	}
+}

@@ -1,0 +1,13 @@
+# Target labels
+ ipc_radio
+# Source files and their labels
+/home/bhargav/ncs/v3.2.2/nrf/samples/bluetooth/peripheral_hids_keyboard/build/modules/nrf/CMakeFiles/ipc_radio
+/home/bhargav/ncs/v3.2.2/nrf/samples/bluetooth/peripheral_hids_keyboard/build/modules/nrf/CMakeFiles/ipc_radio.rule
+/home/bhargav/ncs/v3.2.2/nrf/samples/bluetooth/peripheral_hids_keyboard/build/modules/nrf/CMakeFiles/ipc_radio-complete.rule
+/home/bhargav/ncs/v3.2.2/nrf/samples/bluetooth/peripheral_hids_keyboard/build/modules/nrf/ipc_radio-prefix/src/ipc_radio-stamp/ipc_radio-build.rule
+/home/bhargav/ncs/v3.2.2/nrf/samples/bluetooth/peripheral_hids_keyboard/build/modules/nrf/ipc_radio-prefix/src/ipc_radio-stamp/ipc_radio-configure.rule
+/home/bhargav/ncs/v3.2.2/nrf/samples/bluetooth/peripheral_hids_keyboard/build/modules/nrf/ipc_radio-prefix/src/ipc_radio-stamp/ipc_radio-download.rule
+/home/bhargav/ncs/v3.2.2/nrf/samples/bluetooth/peripheral_hids_keyboard/build/modules/nrf/ipc_radio-prefix/src/ipc_radio-stamp/ipc_radio-install.rule
+/home/bhargav/ncs/v3.2.2/nrf/samples/bluetooth/peripheral_hids_keyboard/build/modules/nrf/ipc_radio-prefix/src/ipc_radio-stamp/ipc_radio-mkdir.rule
+/home/bhargav/ncs/v3.2.2/nrf/samples/bluetooth/peripheral_hids_keyboard/build/modules/nrf/ipc_radio-prefix/src/ipc_radio-stamp/ipc_radio-patch.rule
+/home/bhargav/ncs/v3.2.2/nrf/samples/bluetooth/peripheral_hids_keyboard/build/modules/nrf/ipc_radio-prefix/src/ipc_radio-stamp/ipc_radio-update.rule

@@ -1,0 +1,53 @@
+cmake:
+  application:
+    configuration-dir: '/home/bhargav/ncs/v3.2.2/nrf/samples/bluetooth/peripheral_hids_keyboard/sysbuild/ipc_radio'
+    source-dir: '/home/bhargav/ncs/v3.2.2/nrf/applications/ipc_radio'
+  board:
+    name: 'nrf5340dk'
+    path:
+     - '/home/bhargav/ncs/v3.2.2/zephyr/boards/nordic/nrf5340dk'
+    qualifiers: 'nrf5340/cpunet'
+    revision: ''
+  devicetree:
+    bindings-dirs:
+     - '/home/bhargav/ncs/v3.2.2/nrf/dts/bindings'
+     - '/home/bhargav/ncs/v3.2.2/zephyr/dts/bindings'
+    files:
+     - '/home/bhargav/ncs/v3.2.2/zephyr/boards/nordic/nrf5340dk/nrf5340dk_nrf5340_cpunet.dts'
+    include-dirs:
+     - '/home/bhargav/ncs/v3.2.2/nrf/include'
+     - '/home/bhargav/ncs/v3.2.2/nrf/dts/common'
+     - '/home/bhargav/ncs/v3.2.2/nrf/dts/riscv'
+     - '/home/bhargav/ncs/v3.2.2/nrf/dts/arm'
+     - '/home/bhargav/ncs/v3.2.2/nrf/dts'
+     - '/home/bhargav/ncs/v3.2.2/zephyr/include'
+     - '/home/bhargav/ncs/v3.2.2/zephyr/include/zephyr'
+     - '/home/bhargav/ncs/v3.2.2/zephyr/dts/common'
+     - '/home/bhargav/ncs/v3.2.2/zephyr/dts/vendor'
+     - '/home/bhargav/ncs/v3.2.2/zephyr/dts/rx'
+     - '/home/bhargav/ncs/v3.2.2/zephyr/dts/x86'
+     - '/home/bhargav/ncs/v3.2.2/zephyr/dts/xtensa'
+     - '/home/bhargav/ncs/v3.2.2/zephyr/dts/sparc'
+     - '/home/bhargav/ncs/v3.2.2/zephyr/dts/riscv'
+     - '/home/bhargav/ncs/v3.2.2/zephyr/dts/posix'
+     - '/home/bhargav/ncs/v3.2.2/zephyr/dts/arm64'
+     - '/home/bhargav/ncs/v3.2.2/zephyr/dts/arm'
+     - '/home/bhargav/ncs/v3.2.2/zephyr/dts/arc'
+     - '/home/bhargav/ncs/v3.2.2/zephyr/dts'
+  kconfig:
+    files:
+     - '/home/bhargav/ncs/v3.2.2/zephyr/boards/nordic/nrf5340dk/nrf5340dk_nrf5340_cpunet_defconfig'
+     - '/home/bhargav/ncs/v3.2.2/nrf/samples/bluetooth/peripheral_hids_keyboard/sysbuild/ipc_radio/prj.conf'
+     - '/home/bhargav/ncs/v3.2.2/nrf/samples/bluetooth/peripheral_hids_keyboard/build/ipc_radio/zephyr/.config.sysbuild'
+    user-files:
+     - '/home/bhargav/ncs/v3.2.2/nrf/samples/bluetooth/peripheral_hids_keyboard/sysbuild/ipc_radio/prj.conf'
+  toolchain:
+    name: 'zephyr'
+    path: '/home/bhargav/zephyr-sdk-0.16.5'
+  vendor-specific:
+    nordic:
+      svdfile: '/home/bhargav/ncs/v3.2.2/modules/hal/nordic/nrfx/bsp/stable/mdk/nrf5340_network.svd'
+  zephyr:
+    version: '4.2.99'
+    zephyr-base: '/home/bhargav/ncs/v3.2.2/zephyr'
+version: '0.1.0'

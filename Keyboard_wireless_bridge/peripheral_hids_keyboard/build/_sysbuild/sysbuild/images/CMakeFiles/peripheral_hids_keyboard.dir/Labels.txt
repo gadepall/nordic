@@ -1,0 +1,13 @@
+# Target labels
+ peripheral_hids_keyboard
+# Source files and their labels
+/home/bhargav/ncs/v3.2.2/nrf/samples/bluetooth/peripheral_hids_keyboard/build/_sysbuild/sysbuild/images/CMakeFiles/peripheral_hids_keyboard
+/home/bhargav/ncs/v3.2.2/nrf/samples/bluetooth/peripheral_hids_keyboard/build/_sysbuild/sysbuild/images/CMakeFiles/peripheral_hids_keyboard.rule
+/home/bhargav/ncs/v3.2.2/nrf/samples/bluetooth/peripheral_hids_keyboard/build/_sysbuild/sysbuild/images/CMakeFiles/peripheral_hids_keyboard-complete.rule
+/home/bhargav/ncs/v3.2.2/nrf/samples/bluetooth/peripheral_hids_keyboard/build/_sysbuild/sysbuild/images/peripheral_hids_keyboard-prefix/src/peripheral_hids_keyboard-stamp/peripheral_hids_keyboard-build.rule
+/home/bhargav/ncs/v3.2.2/nrf/samples/bluetooth/peripheral_hids_keyboard/build/_sysbuild/sysbuild/images/peripheral_hids_keyboard-prefix/src/peripheral_hids_keyboard-stamp/peripheral_hids_keyboard-configure.rule
+/home/bhargav/ncs/v3.2.2/nrf/samples/bluetooth/peripheral_hids_keyboard/build/_sysbuild/sysbuild/images/peripheral_hids_keyboard-prefix/src/peripheral_hids_keyboard-stamp/peripheral_hids_keyboard-download.rule
+/home/bhargav/ncs/v3.2.2/nrf/samples/bluetooth/peripheral_hids_keyboard/build/_sysbuild/sysbuild/images/peripheral_hids_keyboard-prefix/src/peripheral_hids_keyboard-stamp/peripheral_hids_keyboard-install.rule
+/home/bhargav/ncs/v3.2.2/nrf/samples/bluetooth/peripheral_hids_keyboard/build/_sysbuild/sysbuild/images/peripheral_hids_keyboard-prefix/src/peripheral_hids_keyboard-stamp/peripheral_hids_keyboard-mkdir.rule
+/home/bhargav/ncs/v3.2.2/nrf/samples/bluetooth/peripheral_hids_keyboard/build/_sysbuild/sysbuild/images/peripheral_hids_keyboard-prefix/src/peripheral_hids_keyboard-stamp/peripheral_hids_keyboard-patch.rule
+/home/bhargav/ncs/v3.2.2/nrf/samples/bluetooth/peripheral_hids_keyboard/build/_sysbuild/sysbuild/images/peripheral_hids_keyboard-prefix/src/peripheral_hids_keyboard-stamp/peripheral_hids_keyboard-update.rule

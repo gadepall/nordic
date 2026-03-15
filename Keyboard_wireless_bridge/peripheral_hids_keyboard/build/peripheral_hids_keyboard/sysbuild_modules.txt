@@ -1,0 +1,2 @@
+"nrf":"/home/bhargav/ncs/v3.2.2/nrf":"/home/bhargav/ncs/v3.2.2/nrf/sysbuild"
+"mcuboot":"/home/bhargav/ncs/v3.2.2/bootloader/mcuboot":"/home/bhargav/ncs/v3.2.2/bootloader/mcuboot/boot/zephyr/sysbuild"
