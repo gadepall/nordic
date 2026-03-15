@@ -1,0 +1,424 @@
+\documentclass[conference]{IEEEtran}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{url}
+\usepackage{circuitikz}
+\usepackage{booktabs}
+\usepackage{array}
+\lstset{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue}\bfseries,
+  commentstyle=\color{green!40!black},
+  stringstyle=\color{red},
+  numbers=none,                     % no numbers
+  numberstyle=\scriptsize\ttfamily, % more readable numbers
+  numbersep=8pt,                    % add spacing from code
+  xleftmargin=1.5em,                % indent code so numbers don’t overlap
+  frame=single,
+  breaklines=true,
+  breakatwhitespace=true,
+  tabsize=2,
+  showstringspaces=false,
+  captionpos=b,
+  keepspaces=true                   % preserve spacing properly
+}
+
+\title{Implementation of a USB-to-Bluetooth Low Energy Keyboard Bridge using the Nordic nRF5340}
+
+\author{
+\IEEEauthorblockN{Bhargav K, Harsha B J}
+\IEEEauthorblockA{
+Department of Electrical Engineering\\
+IIT Hyderabad\\
+Email: ee25btech11013@iith.ac.in, ee25btech11026@iith.ac.in}
+}
+
+\begin{document}
+
+\maketitle
+\begin{abstract}
+
+This work presents the design and implementation of a Bluetooth Low Energy (BLE) keyboard bridge using the Nordic Semiconductor nRF5340 System-on-Chip (SoC). The system enables keyboard input from one Linux-based laptop to be transmitted wirelessly to another Linux laptop through a BLE Human Interface Device (HID) interface. The nRF5340 development kit functions as an intermediary protocol converter, receiving ASCII characters over a USB serial interface and translating them into HID keycodes compatible with standard Bluetooth keyboards.
+
+The firmware was developed using the Zephyr Real-Time Operating System (RTOS) within the nRF Connect SDK environment. The implementation involved modifying the Nordic \texttt{peripheral\_hids\_keyboard} sample to incorporate UART-based input handling, ASCII-to-HID conversion, and BLE HID report transmission. A serial terminal on the transmitting laptop was used to provide keyboard input, which was processed by the nRF5340 and transmitted to the receiving laptop via BLE.
+
+Experimental validation demonstrated that characters typed on the transmitting system were successfully reproduced on the receiving system in real time, confirming the functionality of the UART-to-BLE HID bridging architecture. The project illustrates the capability of modern embedded wireless systems to perform protocol conversion between wired and wireless interfaces, enabling applications such as wireless keyboard adapters, remote terminal control, and embedded input device virtualization.
+
+\end{abstract}
+\section{BLE Keyboard Bridging using nRF5340}
+
+This section presents the design and implementation of a wireless keyboard bridging system using the Nordic Semiconductor nRF5340 development kit. The system enables one Linux laptop to function as a keyboard input source while another Linux laptop receives the keystrokes via Bluetooth Low Energy (BLE).
+
+The nRF5340 development board operates as a protocol bridge, converting ASCII characters received over a USB serial interface into Bluetooth HID keyboard reports. These reports are then transmitted to the receiving laptop, which interprets them as standard keyboard input.
+
+
+\section{Software and Toolchain Installation}
+
+\subsection{Update and Install System Dependencies}
+
+First, update the package manager and install the core dependencies required by the Zephyr build system (CMake, Ninja, Python, etc.).
+
+\begin{lstlisting}[language=bash]
+sudo apt update
+sudo apt upgrade -y
+sudo apt install --no-install-recommends -y \
+    git cmake ninja-build gperf \
+    ccache dfu-util device-tree-compiler wget \
+    python3-dev python3-pip python3-setuptools python3-tk python3-wheel xz-utils file \
+    make gcc gcc-multilib g++-multilib libsdl2-dev
+\end{lstlisting}
+
+\subsection{Install West (Zephyr Build Tool)}
+
+Install \texttt{west}, the command-line tool used to manage the project and build system.
+
+\begin{lstlisting}[language=bash]
+pip3 install --user -U west
+export PATH=$PATH:~/.local/bin
+\end{lstlisting}
+
+\subsection{Initialize nRF Connect SDK (v3.2.2)}
+
+Create a workspace directory and initialize the specific SDK version used for this project.
+
+\begin{lstlisting}[language=bash]
+mkdir ~/ncs
+cd ~/ncs
+
+west init -m https://github.com/nrfconnect/sdk-nrf --mr v3.2.2
+
+west update
+
+west zephyr-export
+\end{lstlisting}
+
+\subsection{Install Python Dependencies}
+
+Install the Python dependencies required by Zephyr and the Nordic SDK.
+
+\begin{lstlisting}[language=bash]
+pip3 install --user -r zephyr/scripts/requirements.txt
+pip3 install --user -r nrf/scripts/requirements.txt
+pip3 install --user -r bootloader/mcuboot/scripts/requirements.txt
+\end{lstlisting}
+
+\subsection{Install the Zephyr SDK Toolchain}
+
+Download and install the Zephyr SDK toolchain required to compile firmware for the nRF5340.
+
+\begin{lstlisting}[language=bash]
+cd ~
+
+wget https://github.com/zephyrproject-rtos/sdk-ng/
+releases/download/v0.16.5/zephyr-sdk-0.16.5_linux-x86_64.tar.xz
+
+tar xvf zephyr-sdk-0.16.5_linux-x86_64.tar.xz
+
+cd zephyr-sdk-0.16.5
+
+./setup.sh
+\end{lstlisting}
+
+\subsection{Install Nordic Command Line Tools}
+
+Install the Nordic command line utilities which include \texttt{nrfjprog} used for flashing the development board.
+
+\begin{lstlisting}[language=bash]
+cd ~/Downloads
+
+sudo dpkg -i nrf-command-line-tools*.deb
+
+sudo apt install -f
+\end{lstlisting}
+
+\subsection{Verification}
+
+Verify that the required tools were installed successfully.
+
+\begin{lstlisting}[language=bash]
+nrfjprog --version
+west --version
+\end{lstlisting}
+
+The data flow in the implemented system is shown below:
+
+\begin{center}
+\textbf{Linux Laptop A (Keyboard Input)}\\
+$\downarrow$\\
+USB Serial (CDC ACM)\\
+$\downarrow$\\
+\textbf{nRF5340 DK}\\
+ASCII $\rightarrow$ HID Conversion\\
+$\downarrow$\\
+Bluetooth Low Energy (BLE HID Keyboard)\\
+$\downarrow$\\
+\textbf{Linux Laptop B (Keyboard Receiver)}
+\end{center}
+
+\subsection{Hardware Components}
+
+\begin{itemize}
+\item Nordic Semiconductor \textbf{nRF5340 DK}
+\item Linux Laptop A (keyboard input source)
+\item Linux Laptop B (BLE keyboard receiver)
+\item USB cable for programming and serial communication
+\end{itemize}
+
+\subsection{Firmware Design}
+
+The firmware was derived from the Nordic sample:
+
+\begin{lstlisting}[language=bash]
+nrf/samples/bluetooth/peripheral_hids_keyboard
+\end{lstlisting}
+
+The following modifications were implemented:
+
+\begin{itemize}
+\item UART driver integration for receiving ASCII characters.
+\item ASCII to HID keycode conversion logic.
+\item BLE HID keyboard report generation.
+\item UART polling thread for continuous keyboard input handling.
+\end{itemize}
+
+\subsection{ASCII to HID Conversion}
+
+BLE keyboards do not transmit ASCII characters directly. Instead, they transmit HID keycodes along with modifier bits. Therefore, an ASCII-to-HID translation layer was implemented.
+
+\begin{lstlisting}[language=C]
+static uint8_t ascii_to_hid(uint8_t c)
+{
+    if (c >= 'a' && c <= 'z')
+        return (c - 'a') + 4;
+
+    if (c >= 'A' && c <= 'Z')
+        return ((c - 'A') + 4) | 0x80;
+
+    if (c >= '1' && c <= '9')
+        return (c - '1') + 30;
+
+    if (c == '0') return 39;
+
+    if (c == ' ') return 44;
+    if (c == '\n') return 40;
+
+    if (c == '\b' || c == 127) return 42;
+
+    if (c == '-') return 45;
+    if (c == '_') return 45 | 0x80;
+
+    if (c == '=') return 46;
+    if (c == '+') return 46 | 0x80;
+
+    if (c == '[') return 47;
+    if (c == '{') return 47 | 0x80;
+
+    if (c == ']') return 48;
+    if (c == '}') return 48 | 0x80;
+
+    if (c == '\\') return 49;
+    if (c == '|') return 49 | 0x80;
+
+    if (c == ';') return 51;
+    if (c == ':') return 51 | 0x80;
+
+    if (c == '\'') return 52;
+    if (c == '"') return 52 | 0x80;
+
+    if (c == ',') return 54;
+    if (c == '<') return 54 | 0x80;
+
+    if (c == '.') return 55;
+    if (c == '>') return 55 | 0x80;
+
+    if (c == '/') return 56;
+    if (c == '?') return 56 | 0x80;
+    if (c == '!') return 30 | 0x80;
+    if (c == '@') return 31 | 0x80;
+    if (c == '#') return 32 | 0x80;
+    if (c == '$') return 33 | 0x80;
+    if (c == '%') return 34 | 0x80;
+    if (c == '^') return 35 | 0x80;
+    if (c == '&') return 36 | 0x80;
+    if (c == '*') return 37 | 0x80;
+    if (c == '(') return 38 | 0x80;
+    if (c == ')') return 39 | 0x80;
+    return 0;
+}
+\end{lstlisting}
+
+The most significant bit (0x80) is used to indicate that the \textbf{SHIFT modifier} must be applied.
+
+\subsection{UART Input Processing}
+
+A dedicated thread continuously polls the UART interface to detect incoming keyboard characters.
+
+\begin{lstlisting}[language=C]
+void uart_thread(void *a, void *b, void *c)
+{
+    uint8_t ch;
+
+    while (1) {
+        if (uart_poll_in(uart_dev, &ch) == 0) {
+            send_uart_key(ch);
+        }
+
+        k_sleep(K_MSEC(1));
+    }
+}
+\end{lstlisting}
+
+When a character is received, it is converted to the corresponding HID keycode and transmitted via BLE.
+
+\section{Building and Flashing the Firmware}
+
+The firmware was compiled and flashed using the Zephyr build system.
+
+\subsection{Build the Project}
+
+Navigate to the sample directory:
+
+\begin{lstlisting}[language=bash]
+cd ~/ncs/v3.2.2/nrf/samples/bluetooth/peripheral_hids_keyboard
+\end{lstlisting}
+
+Modify the code under src/main.c according to the code(main.c) in this repository. \\
+Compile the firmware:
+
+\begin{lstlisting}[language=bash]
+west build -b nrf5340dk/nrf5340/cpuapp
+\end{lstlisting}
+
+If build artifacts already exist, perform a pristine build:
+
+\begin{lstlisting}[language=bash]
+west build -b nrf5340dk/nrf5340/cpuapp -p
+\end{lstlisting}
+
+\subsection{Flash the Firmware}
+
+Connect the development board via the \textbf{IMCU USB} port and flash the firmware:
+
+\begin{lstlisting}[language=bash]
+west flash
+\end{lstlisting}
+
+Once flashing completes successfully, the board begins advertising as a BLE keyboard.
+
+\section{Connecting the Receiver Laptop}
+
+The receiving Linux laptop connects to the nRF5340 using the \texttt{bluetoothctl} utility.
+
+\begin{lstlisting}[language=bash]
+bluetoothctl
+power on
+scan on
+\end{lstlisting}
+
+Once the device \texttt{Nordic\_HIDS\_keyboard} appears, connect to it:
+
+\begin{lstlisting}[language=bash]
+pair AA:BB:CC:DD:EE:FF
+trust AA:BB:CC:DD:EE:FF
+connect AA:BB:CC:DD:EE:FF
+\end{lstlisting}
+
+After connection, the device is registered as a standard HID keyboard.
+
+\section{Keyboard Input Transmission}
+
+On Laptop A, keyboard characters are transmitted to the nRF5340 via the USB serial interface.
+
+\subsection{Serial Port Configuration}
+
+First identify the serial port:
+
+\begin{lstlisting}[language=bash]
+ls /dev/tty.usb*
+\end{lstlisting}
+
+Then configure the baud rate according to the serial port which appears on entering the previous command.
+
+\begin{lstlisting}[language=bash]
+stty -f <serial_device> 115200
+\end{lstlisting}
+
+\subsection{Keyboard Input Transmission using Serial Terminal}
+
+Instead of using a custom script, keyboard input was transmitted directly through a serial terminal connected to the nRF5340 USB CDC interface. The \texttt{screen} utility was used to open the serial port and send characters interactively.
+
+\subsubsection{Identifying the Serial Device}
+
+First, the available USB serial devices were listed:
+
+\begin{lstlisting}[language=bash]
+ls /dev/tty*
+\end{lstlisting}
+
+The nRF5340 development board appeared as:
+
+\begin{lstlisting}[language=bash]
+<serial_device>
+\end{lstlisting}
+
+\subsubsection{Opening the Serial Terminal}
+
+The serial terminal was opened using the \texttt{screen} command with a baud rate of 115200:
+
+\begin{lstlisting}[language=bash]
+screen <serial_device> 115200
+\end{lstlisting}
+
+Once the connection was established, characters typed in the terminal were directly transmitted to the nRF5340 board through the USB serial interface.
+
+\subsubsection{Data Transmission}
+
+The firmware running on the nRF5340 continuously polls the UART interface and processes incoming characters. Each received ASCII character is converted into the corresponding HID keycode and transmitted over BLE as a keyboard report.
+
+Therefore, typing characters inside the \texttt{screen} terminal results in the same characters appearing on the receiving Linux laptop through the BLE HID interface.
+
+
+To verify proper operation:
+
+\begin{enumerate}
+\item Run the keyboard transmission script on Laptop A.
+\item Ensure the nRF5340 is connected via BLE to Laptop B.
+\item Open a text editor on Laptop B.
+\item Type characters on Laptop A.
+\end{enumerate}
+
+If the system functions correctly, characters typed on Laptop A appear instantly on Laptop B, confirming successful UART-to-BLE HID conversion.
+
+\section{Challenges Encountered}
+
+Several technical challenges were encountered during implementation:
+
+\begin{itemize}
+\item Correctly mapping ASCII characters to HID keycodes.
+\item Handling special characters such as \texttt{! @ \# \$}.
+\item Ensuring proper modifier key handling (SHIFT).
+\item Managing UART communication and buffering.
+\item Establishing stable BLE pairing with the receiving device.
+\end{itemize}
+
+These issues were resolved through iterative firmware debugging and HID key mapping corrections.
+
+\section{Applications}
+
+The developed system demonstrates practical applications in embedded wireless interface design:
+
+\begin{itemize}
+\item Wireless keyboard adapters
+\item Embedded input device virtualization
+\item Remote terminal control systems
+\item BLE HID device prototyping
+\end{itemize}
+
+This project illustrates how modern SoCs such as the nRF5340 can function as flexible protocol bridges between wired and wireless interfaces.
+\end{document}
