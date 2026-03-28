@@ -9,8 +9,8 @@
 \usepackage{booktabs}
 \usepackage{url}
 \usepackage{circuitikz}
-\usepackage{booktabs}
 \usepackage{array}
+
 \lstset{
   basicstyle=\ttfamily\small,
   keywordstyle=\color{blue}\bfseries,
@@ -47,15 +47,16 @@ This paper presents the design and implementation of a cross-platform bidirectio
 
 In the wireless implementation, the nRF5340 functions as a protocol converter, bridging USB-CDC (ACM) serial data to Bluetooth Low Energy (BLE) packets via the Nordic UART Service (NUS). To mitigate data corruption caused by control character interpretation in the UART stack, a Base64 encoding scheme was integrated, successfully enabling the transmission of binary assets (images, PDFs) with 100\% data integrity.
 \end{abstract}
+
 \section{Hardware Requirements}
 \begin{itemize}
     \item Development Board: Nordic Semiconductor nRF5340 DK.
-    \item Smartphone: Android device with Termux, nRF Connect for Mobile and Serial Bluetooth Terminal App.
+    \item Smartphone: Android device with nRF Connect for Mobile and Serial Bluetooth Terminal App.
     \item PC: Linux machine
-    
 \end{itemize}
 
 \section{Software and Toolchains Installations}
+
 \subsection{1. Update \& Install System Dependencies}
 First, update the package manager and install the core dependencies required by the Zephyr build system (CMake, Ninja, Python, etc.).
 
@@ -69,57 +70,61 @@ sudo apt install --no-install-recommends -y \
     make gcc gcc-multilib g++-multilib libsdl2-dev
 \end{lstlisting}
 
-\subsection{2. Install West (Zephyr Build Tool)}
-Install \texttt{west}, the command-line tool used to manage the project and build system.
+\subsection{2. Set up Python Virtual Environment \& Install West}
+Modern Linux distributions enforce PEP 668, which restricts global `pip` installations. The Zephyr build system requires a dedicated Python virtual environment.
 
 \begin{lstlisting}[language=bash]
-pip3 install --user -U west
-# Ensure ~/.local/bin is in your PATH if west is not found
-export PATH=$PATH:~/.local/bin
+# Create a virtual environment in the home directory
+python3 -m venv ~/zephyr-venv
+
+# Activate the virtual environment
+source ~/zephyr-venv/bin/activate
+
+# Install west inside the virtual environment
+pip3 install -U west
 \end{lstlisting}
+\noindent \textbf{Note:} You must run \texttt{source \textasciitilde/zephyr-venv/bin/activate} every time you open a new terminal to build the project.
 
 \subsection{3. Initialize nRF Connect SDK (v3.2.2)}
 Create a workspace directory and initialize the specific SDK version used for this project.
 
 \begin{lstlisting}[language=bash]
-# 1. Create a folder for the SDK
 mkdir ~/ncs
 cd ~/ncs
 
-# 2. Initialize the SDK pointing to version v3.2.2
+# Initialize the SDK pointing to version v3.2.2
 west init -m https://github.com/nrfconnect/sdk-nrf --mr v3.2.2
 
-# 3. Download the code
+# Download the code
 west update
 
-# 4. Export CMake package for Zephyr
+# Export CMake package for Zephyr
 west zephyr-export
 \end{lstlisting}
 
 \subsection{4. Install Python Dependencies}
-Install the specific Python requirements for the Zephyr kernel, the nRF SDK, and the bootloader.
+With the virtual environment activated, install the specific Python requirements for the Zephyr kernel, the nRF SDK, and the bootloader.
 
 \begin{lstlisting}[language=bash]
-pip3 install --user -r zephyr/scripts/requirements.txt
-pip3 install --user -r nrf/scripts/requirements.txt
-pip3 install --user -r bootloader/mcuboot/scripts/requirements.txt
+pip3 install -r zephyr/scripts/requirements.txt
+pip3 install -r nrf/scripts/requirements.txt
+pip3 install -r bootloader/mcuboot/scripts/requirements.txt
 \end{lstlisting}
 
 \subsection{5. Install the Zephyr SDK Toolchain}
-Download and install the cross-compiler toolchain (Zephyr SDK 0.16.1) required to compile code for the nRF5340.
+Download and install the cross-compiler toolchain (Zephyr SDK 0.16.8) required to compile code for the nRF5340 on NCS v3.2.x.
 
 \begin{lstlisting}[language=bash]
-# 1. Download the Zephyr SDK Bundle
+# Download the Zephyr SDK Bundle
 cd ~
-wget https://github.com/zephyrproject-rtos/sdk-ng/
-releases/download/v0.16.1/zephyr-sdk-0.16.1_linux-x86_64.tar.xz
+wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.16.8/zephyr-sdk-0.16.8_linux-x86_64.tar.xz
 
-# 2. Extract the archive
-tar xvf zephyr-sdk-0.16.1_linux-x86_64.tar.xz
+# Extract the archive
+tar xvf zephyr-sdk-0.16.8_linux-x86_64.tar.xz
 
-# 3. Run the setup script
-cd zephyr-sdk-0.16.1
-./setup.sh
+# Run the setup script
+cd zephyr-sdk-0.16.8
+./setup.sh -c
 \end{lstlisting}
 
 \subsection{6. Install nRF Command Line Tools}
@@ -179,7 +184,7 @@ west build -p -b nrf5340dk/nrf5340/cpuapp nrf/samples/bluetooth/peripheral_uart
 Once the build completes successfully, flash the binary to the nRF5340 development kit.
 
 \begin{enumerate}
-    \item Connect the nRF5340 DK to the PC via thImplementation of Cross-Platform Data Transmission Systems: A Comparative Study of Wired Serial and Bluetooth Low Energy (BLE) Bridging using nRF5340e \textbf{IMCU USB} port (Interface MCU).
+    \item Connect the nRF5340 DK to the PC via the \textbf{IMCU USB} port (Interface MCU).
     \item Run the flash command:
 \end{enumerate}
 
@@ -218,7 +223,6 @@ sudo screen /dev/ttyACM0 115200
 
 \subsubsection{C. Result}
 The text typed on the smartphone should immediately appear in the Linux terminal window. Conversely, typing in the Linux terminal will send text to the smartphone app logs.
-
 
 
 \section{File Transfer : Linux Terminal \& Android Serial App}
@@ -297,73 +301,10 @@ The process involves three stages:
 \begin{enumerate}
     \item \textbf{Sender (Linux):} Encodes the binary file into a Base64 text string.
     \item \textbf{Transmission:} The text string is sent over the USB-to-Bluetooth bridge.
-    \item \textbf{Receiver (Termux):} Receives the text string and decodes it back into the original binary format.
+    \item \textbf{Receiver (Smartphone/PC):} Receives the text string and decodes it back into the original binary format using standard Base64 decoding tools.
 \end{enumerate}
 
-\subsection{2. Procedure: Linux to Android (Termux)}
-
-\subsubsection{Step A: Prepare the Receiver (Termux)}
-On the Android device, open Termux and set up a listener that will dump the incoming data into a temporary file.
-
-\begin{lstlisting}[language=bash]
-# 1. Open a listening connection (via the Bridge App on port 9000)
-# 2. Redirect output to a file named 'received_data.b64'
-nc 127.0.0.1 9000 > received_data.b64
-\end{lstlisting}
-\textit{Termux is now waiting for data...}
-
-\subsubsection{Step B: Send the File from Linux}
-On the Linux laptop, we use the \texttt{base64} command to encode the file and pipe it immediately to the USB port.
-
-\begin{lstlisting}[language=bash]
-# Syntax: base64 <input_file> > <device_port>
-
-# Example: Sending an image named 'photo.jpg'
-base64 photo.jpg > /dev/ttyACM0
-\end{lstlisting}
-\textit{The transfer will take a few seconds depending on the file size. Once the command finishes on Linux, close the connection on Termux (Ctrl+C).}
-
-\subsubsection{Step C: Decode the File on Termux}
-Now that we have the Base64 text file on the phone, we must decode it back to its original binary format.
-
-\begin{lstlisting}[language=bash]
-# 1. Decode the text file back to binary
-base64 -d received_data.b64 > restored_photo.jpg
-
-# 2. Verify the file exists and has size
-ls -lh restored_photo.jpg
-\end{lstlisting}
-
-\subsection{3. Procedure: Android (Termux) to Linux}
-
-\subsubsection{Step A: Prepare the Receiver (Linux)}
-On the Linux laptop, open a terminal to listen for the incoming stream.
-
-\begin{lstlisting}[language=bash]
-# Read from the USB port and save to a file
-cat /dev/ttyACM0 > received_from_phone.b64
-\end{lstlisting}
-
-\subsubsection{Step B: Send the File from Termux}
-In Termux, locate the file you want to send and pipe it to the bridge connection.
-
-\begin{lstlisting}[language=bash]
-# Encode a PDF file and send it to the bridge port (9000)
-base64 document.pdf | nc 127.0.0.1 9000
-\end{lstlisting}
-
-\subsubsection{Step C: Decode on Linux}
-Once the transfer stops, press \textbf{Ctrl+C} on the Linux terminal to stop recording. Then decode the file.
-
-\begin{lstlisting}[language=bash]
-# Decode back to PDF
-base64 -d received_from_phone.b64 > restored_document.pdf
-
-# Open the file to verify
-xdg-open restored_document.pdf
-\end{lstlisting}
-
-\subsection{4. Technical Constraints}
+\subsection{2. Technical Constraints}
 \begin{itemize}
     \item \textbf{Overhead:} Base64 encoding increases the file size by approximately 33\%.
     \item \textbf{Speed:} Bluetooth Low Energy (BLE) has a limited bandwidth (approx. 10-20 kB/s for NUS). Transferring large files (e.g., $>$ 1MB) may take several minutes.
@@ -373,12 +314,14 @@ xdg-open restored_document.pdf
 
 \section{File Transfer between 2 devices via bluetooth without using nRF5340 BLE}
 Switch on bluetooth on both devices.
-\subsection{Installating the Packages}
+
+\subsection{Installing the Packages}
 \begin{lstlisting}[language=bash]
 sudo apt update
 sudo apt install bluez bluetooth bluetooth-obex obexftp gnome-bluetooth
 sudo systemctl start bluetooth
 \end{lstlisting}
+
 \subsection{Connecting the sender to the receiver}
 On the sender device:
 \begin{lstlisting}[language=bash]
@@ -398,8 +341,7 @@ bluetooth-sendto --device=AA:BB:CC:DD:EE:FF /path/to/file1.txt /path/to/file2.jp
 \end{lstlisting}
 
 To automate this process: \\
-Save the following as 
-bt-multi-send.sh
+Save the following as \texttt{bt-multi-send.sh}
 \begin{lstlisting}[language=bash]
 #!/bin/bash
 DEVICE="AA:BB:CC:DD:EE:FF"  # Replace with MAC Address
@@ -419,7 +361,6 @@ for file in "$DIR_PATH"/*; do
     bluetooth-sendto --device=$DEVICE "$file"
   fi
 done
-
 \end{lstlisting}
 
 Make it executable:
@@ -441,10 +382,10 @@ Nordic Semiconductor SoCs are widely adopted in commercial IoT sectors. Notable 
     \item \textbf{Medical Healthcare:} Devices such as \textit{PulseTape} utilize Nordic chips for continuous ECG monitoring, prioritizing low power consumption for extended battery life.
     \item \textbf{Smart Home:} Significantly, the \textit{eCozy 2.0 Smart Thermostat} employs the \textbf{nRF5340}—the exact SoC utilized in this project—to handle complex connectivity protocols like Matter and Bluetooth Mesh.
 \end{itemize}
+
 \section{Conclusion}
 
 This project successfully demonstrated the implementation of a robust, bidirectional wireless data transfer system utilizing the Nordic Semiconductor nRF5340 System-on-Chip. By configuring the nRF5340 as a bridge between a USB-CDC (Serial) interface and the Bluetooth Low Energy (BLE) Nordic UART Service (NUS), we established a seamless communication link between a Linux-based PC and an Android mobile environment and between 2 Linux-based PC.
-
 
 \begin{itemize}
     \item \textbf{Firmware Implementation:} The firmware was successfully built and flashed using the Zephyr RTOS command-line toolchain (\texttt{west}), demonstrating a professional, reproducible development workflow without reliance on heavy GUI IDEs.
@@ -455,5 +396,16 @@ This project successfully demonstrated the implementation of a robust, bidirecti
 The comparative analysis between direct wired connections and the nRF5340-based solution highlights the flexibility of BLE for embedded applications. While wired connections offer higher raw throughput, the nRF5340 implementation provides a reliable, low-power wireless alternative suitable for IoT remote debugging, field telemetry, and file exchange in environments where physical cabling is impractical. The system stands as a functional proof-of-concept for modern embedded wireless bridging.
 
 
-\end{document}
+\begin{thebibliography}{00}
 
+\bibitem{nrf5340}
+Nordic Semiconductor, \emph{nRF5340 Objective Product Specification v1.3}, 2023. [Online]. Available: https://infocenter.nordicsemi.com/
+
+\bibitem{zephyr}
+Zephyr Project, \emph{Zephyr Project Documentation}. [Online]. Available: https://docs.zephyrproject.org/
+
+\bibitem{ble}
+Bluetooth Special Interest Group (SIG), \emph{Bluetooth Core Specification v5.0}, 2016.
+
+\end{thebibliography}
+\end{document}
