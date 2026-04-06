@@ -51,7 +51,7 @@ In the wireless implementation, the nRF5340 functions as a protocol converter, b
 \section{Hardware Requirements}
 \begin{itemize}
     \item \textbf{Development Board:} Nordic Semiconductor nRF5340 DK.
-    \item \textbf{Smartphone:} Android device with nRF Connect for Mobile and Serial Bluetooth Terminal App.
+    \item \textbf{Smartphone:} Android device with Termux and Serial Bluetooth Terminal App.
     \item \textbf{PC:} Linux machine (Ubuntu).
     \item \textbf{Cable:} Micro USB cable(data transfer and power).
 \end{itemize}
@@ -72,8 +72,8 @@ The system model comprises three primary nodes: the Linux Host PC, the nRF5340 D
     \node[draw, rectangle, minimum width=2.5cm, minimum height=1.5cm, align=center, right of=nrf, node distance=3.5cm] (phone) {Android\\(Client)};
 
     % Arrows
-    \draw[<->] (pc) -- node[above, align=center, font=\scriptsize] {Micro USB-CDC\\(Wired)} (nrf);
-    \draw[<->, dashed] (nrf) -- node[above, align=center, font=\scriptsize] {BLE NUS\\(Wireless)} (phone);
+    \draw[<->] (pc) -- node[above, align=center, font=\scriptsize] {USB-\\CDC \\ (Wired)} (nrf);
+    \draw[<->, dashed] (nrf) -- node[above, align=center, font=\scriptsize] {BLE \\ NUS\\(Wireless)} (phone);
 \end{tikzpicture}
 \vspace{0.2cm}
 \caption{System Model for Cross-Platform Data Transmission.}
@@ -91,7 +91,7 @@ The physical hardware setup is deliberately minimalist, leveraging the onboard I
     \node[draw, rectangle, rounded corners, minimum width=2.5cm, minimum height=1.5cm, align=center, right of=pc, node distance=4.5cm] (nrf) {nRF5340 DK\\(IMCU USB Port)};
 
     % Connection
-    \draw[<->, line width=1.2pt] (pc) -- node[above, font=\scriptsize] {Micro-USB Cable} node[below, font=\scriptsize] {(Power + UART)} (nrf);
+    \draw[<->, line width=1.2pt] (pc) -- node[above, font=\scriptsize] {USB Cable} (nrf);
 \end{tikzpicture}
 \vspace{0.2cm}
 \caption{Hardware Connection Diagram.}
@@ -111,10 +111,87 @@ The process involves three stages:
 \subsection{2. Technical Constraints}
 \begin{itemize}
     \item \textbf{Overhead:} Base64 encoding increases the file size by approximately 33\%.
-    \item \textbf{Speed:} Bluetooth Low Energy (BLE) has a limited bandwidth (approx. 10-20 kB/s for NUS). Transferring large files (e.g., $>$ 1MB) may take several minutes.
+    \item \textbf{Speed:} Bluetooth Low Energy (BLE) has a limited bandwidth. The observed speed is around 4.5 kB/second. Transferring large files (e.g., $>$ 1MB) may take several minutes.
     \item \textbf{Buffer:} Ensure the receiving device does not sleep during transfer, as BLE connections may drop if the radio is idle for too long.
 \end{itemize}
 
+\section{Nordic Provided Examples for UART Text Transfer}
+
+Nordic Semiconductor provides an official sample application for Bluetooth-based 
+serial communication as part of the nRF Connect SDK. The \texttt{peripheral\_uart} 
+sample, located at:
+
+\begin{center}
+\texttt{nrf/samples/bluetooth/peripheral\_uart}
+\end{center}
+
+\noindent demonstrates the use of the \textbf{Nordic UART Service (NUS)}, a 
+custom BLE GATT service that emulates a serial port over Bluetooth Low Energy. 
+This sample is designed specifically for text-based data streaming and serves 
+as the official reference implementation for UART-to-BLE bridging on Nordic 
+hardware.
+
+\subsection{What the Official Sample Provides}
+The stock \texttt{peripheral\_uart} sample includes the following baseline 
+capabilities:
+\begin{itemize}
+    \item Bidirectional text data transfer between a UART interface and a BLE 
+    central device.
+    \item Asynchronous UART handling via Zephyr's \texttt{uart\_async\_adapter}.
+        \item A basic two-LED status system: \textbf{LED1} blinks to indicate the 
+    firmware is running, and \textbf{LED2} lights up when a BLE connection is 
+    established.
+    \item Optional BLE security via passkey confirmation using the onboard buttons.
+    \item A generic startup message: \textit{``Starting Nordic UART service sample''} 
+    printed over UART on boot.
+\end{itemize}
+
+\subsection{Limitations of the Official Sample}
+While functional, the official sample lacks the following:
+\begin{itemize}
+    \item No runtime feedback on how much data has been transferred.
+    \item No visual indication that data is actively being received over BLE 
+    (LED2 only reflects connection state, not data activity).
+    \item The startup banner provides no useful runtime configuration information 
+    to the developer.
+\end{itemize}
+
+\noindent These limitations motivated the enhancements described in the 
+following section.
+
+\section{Modifications and Improvements to the Peripheral UART Sample}
+
+\subsection{Enhancement 1 -- Informative Startup Banner}
+
+The original startup message printed over UART was a generic placeholder string: 
+\textit{``Starting Nordic UART service sample''}. This was replaced with a concise 
+yet more informative banner that displays the configured buffer size at boot time:
+
+\begin{verbatim}
+NUS Bridge Ready [40]
+\end{verbatim}
+
+\noindent
+This gives immediate confirmation that the firmware is running and displays the 
+active buffer configuration, which is useful during testing and debugging without 
+exceeding the 40-byte UART transmit buffer limit.
+
+\subsection{Enhancement 2 -- BLE Data Activity Indicator via LED}
+
+A visual data activity indicator was added using \textbf{LED3} (\texttt{DK\_LED3}). 
+When the device receives data over the BLE NUS (Nordic UART Service) connection, 
+LED3 briefly illuminates for 100 milliseconds and then turns off automatically.
+
+\noindent
+This was implemented using Zephyr's \textbf{delayable work queue} mechanism 
+(\texttt{k\_work\_delayable}), which schedules the LED off event without blocking 
+the BLE callback thread, making it non-intrusive to data throughput.
+
+\noindent
+\textbf{Why this is better than a simple \texttt{k\_sleep()}:} Calling 
+\texttt{k\_sleep()} inside a BLE callback can stall the thread and cause missed 
+packets. The work queue approach offloads the LED shutdown to a background task, 
+keeping the data path completely unaffected.
 
 \section{Industry Applications of Nordic SoCs}
 Nordic Semiconductor SoCs are widely adopted in commercial IoT sectors. Notable examples include:
@@ -240,7 +317,9 @@ source zephyr/zephyr-env.sh
 \end{lstlisting}
 
 \subsection{2. Building the Firmware}
-Target Board: \texttt{nrf5340dk/nrf5340/cpuapp}.
+\textbf{Important Note:} Before building, ensure that the default \texttt{main.c} file in the sample directory has been replaced with the custom \texttt{main.c} code provided in the project repository\footnote{\url{https://github.com/gadepall/nordic/blob/98d3648fbc7c7dbd8c8d82ef259fdef46a244059/File_Transfer/codes/main.c}}.
+
+\noindent Target Board: \texttt{nrf5340dk/nrf5340/cpuapp}.
 \begin{lstlisting}[language=bash]
 west build -b nrf5340dk/nrf5340/cpuapp nrf/samples/bluetooth/peripheral_uart
 \end{lstlisting}
@@ -254,6 +333,7 @@ Once the build completes successfully, flash the binary to the nRF5340 developme
 \end{enumerate}
 
 \begin{lstlisting}[language=bash]
+cd /nrf/samples/bluetooth/peripheral_uart
 west flash
 \end{lstlisting}
 
@@ -275,8 +355,8 @@ ls /dev/ttyACM*
 \end{lstlisting}
     \item Open the serial connection using \texttt{minicom} with a baud rate of \textbf{115200}.
 \begin{lstlisting}[language=bash]
-# Replace ttyACM0 with your actual port
-sudo minicom -D /dev/ttyACM0 -b 115200
+# Replace ttyACM1 with your actual port
+sudo minicom -D /dev/ttyACM1 -b 115200
 \end{lstlisting}
     \item The terminal screen will clear and wait for input. (Press \textbf{Reset} on the board if you want to see the boot log).
 \end{enumerate}
@@ -297,19 +377,22 @@ We use a dedicated terminal app to act as the Bluetooth Central device.
     \item \textbf{Connect:} Locate the device named \textbf{Nordic\_UART\_Service} in the list and tap it to connect. The terminal screen should show ``Connected''.
 \end{enumerate}
 
-\subsection{3. Verifying File Transfer (Text Streaming)}
+\subsection{3. Verifying File Transfer (Text Streaming)} \label{text}
 
 This section details the procedure to transfer entire text files between the Android device and the Linux machine using the Nordic UART Service.
 
 \subsubsection{Smartphone to Linux (Sending a File)}
-To send a text file stored on the phone to the Linux terminal:
+To send a text file stored on the phone and save it directly to the Linux host:
 \begin{enumerate}
-    \item Ensure the devices are connected via the \textbf{Serial Bluetooth Terminal} app.
-    \item Tap the \textbf{Menu} icon (three lines) in the top-left corner or the \textbf{Upload/Folder} icon (if available on the toolbar).
-    \item Select \textbf{Send File}.
-    \item Browse and select a \texttt{.txt} file from your phone's storage.
-    \item \textbf{Result:} The content of the file will stream immediately into the open \texttt{minicom} session on your Linux terminal. This can be saved as a file in the PC.
+  \item Ensure the devices are connected via the \textbf{Serial Bluetooth Terminal} app.
+  \item On the Linux terminal, instruct \texttt{minicom} to capture the incoming serial data to a file by pressing \textbf{Ctrl+A}, followed by \textbf{L}.
+ \item When prompted, enter a filename (e.g., \texttt{received\_file.txt}) and press \textbf{Enter}.
+ \item On the Android app, tap the \textbf{Menu} icon (three lines) or the \textbf{Upload/Folder} icon.
+  \item Select \textbf{Send File}, then browse and select the desired \texttt{.txt} file.
+  \item \textbf{Result:} The content of the file will stream into the open \texttt{minicom} session and be written directly to the capture file on the PC.
+  \item Once the transfer is complete, safely close and save the file in \texttt{minicom} by pressing \textbf{Ctrl+A}, followed by \textbf{L}, and selecting \textbf{Close}.
 \end{enumerate}
+
 
 \subsubsection{Linux to Smartphone (Sending a File)}
 To send a text file from the Linux machine to the phone, we cannot just type in the terminal. We must pipe the file directly to the device port.
@@ -322,16 +405,66 @@ echo "This is a test file sent from Linux." > test_file.txt
 \end{lstlisting}
     \item Use the \texttt{cat} command to redirect the file into the USB serial port:
 \begin{lstlisting}[language=bash]
-# Replace ttyACM0 with your actual port
-sudo sh -c 'cat test_file.txt > /dev/ttyACM0'
+# Replace ttyACM1 with your actual port
+sudo sh -c 'cat test_file.txt > /dev/ttyACM1'
 \end{lstlisting}
-    \item \textbf{Result:} The content of \texttt{test\_file.txt} will appear in the \textbf{Serial Bluetooth Terminal} app on your phone (usually in blue).
+    \item \textbf{Result:} The content of \texttt{test\_file.txt} will appear in the \textbf{Serial Bluetooth Terminal} app on your phone (usually in green).
+
+    \item \textbf{Save:} To save the text as a file to your phone, tap the three-dot menu, select Data, and choose Save. To update the save location, go to Settings $>$ Misc. and modify the Save+log folder path.
 \end{enumerate}
 
+\section{Binary File Transfer: Smartphone to Linux Host}
 
+This section details the specific procedure for transmitting raw binary assets (such as \texttt{.jpg} or\texttt{.png} or \texttt{.pdf} files) from the Android mobile environment to the Linux host. To circumvent the Nordic UART Service's (NUS) inability to handle raw binary control characters, a local Base64 encoding workflow was utilized on the smartphone prior to transmission.
 
-\section{File Transfer between 2 devices via bluetooth without using nRF5340 BLE}
-Switch on bluetooth on both devices.
+\subsection{1. Base64 Encoding via Termux (Android)}
+Android does not natively provide a user-accessible command-line interface. Therefore, \textbf{Termux}, a robust terminal emulator for Android, was employed to handle the file conversion locally on the device.
+
+\begin{enumerate}
+    \item Open Termux and navigate to the directory containing the source binary file (ensuring Termux has storage permissions).
+    \item Execute the \texttt{base64} command to encode the binary file into a plain text format.
+\end{enumerate}
+
+\begin{lstlisting}[language=bash]
+# Encode an image into a Base64 text file on the phone
+base64 original_image.jpg > encoded_payload.txt
+
+# Verify the text file was created successfully
+ls -lh encoded_payload.txt
+\end{lstlisting}
+
+\subsection{2. BLE Transmission via Serial Terminal App}
+Once the binary file is safely converted to text, it can be transmitted without risk of UART data corruption.
+
+\begin{enumerate}
+    \item Launch the \textbf{Serial Bluetooth Terminal} application on the smartphone.
+    \item Connect to the nRF5340 board via the \textbf{Nordic\_UART\_Service}.
+    \item Navigate to the app's attachment/menu interface and select \textbf{Send File}.
+    \item Select the \texttt{encoded\_payload.txt} file generated by Termux.
+    \item The app will stream the Base64 text over the BLE link to the nRF5340, which bridges it to the PC via USB-CDC.
+\end{enumerate}
+
+\subsection{3. Stream Capture and Decoding (Linux PC)}
+On the receiving end, the Linux host must capture the incoming serial stream and decode it back into its original binary form.
+
+\begin{enumerate}
+    \item \textbf{Capture the Stream:} Open a terminal on the Linux PC and use the \texttt{minicom} command to listen to the nRF5340's serial port, redirecting the output to a new text file which has been mentioned in Section \ref{text}.
+\end{enumerate}
+
+\begin{enumerate}
+    \setcounter{enumi}{1}
+    \item \textbf{Decode to Binary:} Utilize the native Linux \texttt{base64} utility to reverse the encoding process and restore the file.
+\end{enumerate}
+
+\begin{lstlisting}[language=bash]
+# Decode the captured text back into the original image
+base64 -d received_payload.txt > restored_image.jpg
+\end{lstlisting}
+
+The image at the sender and the receiver's end has been found out to be the same. This shows 100\% data integrity even for images and pdf.
+
+\section{File Transfer between 2 devices via Bluetooth without using nRF5340 BLE}
+Switch on Bluetooth on both devices.
 
 \subsection{Installing the Packages}
 \begin{lstlisting}[language=bash]
