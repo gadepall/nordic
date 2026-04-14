@@ -180,7 +180,7 @@ exceeding the 40-byte UART transmit buffer limit.
 
 A visual data activity indicator was added using \textbf{LED3} (\texttt{DK\_LED3}). 
 When the device receives data over the BLE NUS (Nordic UART Service) connection, 
-LED3 briefly illuminates for 100 milliseconds and then turns off automatically.
+LED3 turns ON when the first BLE NUS packet is received. Each subsequent packet resets the delayed-work timer, keeping LED3 ON continuously. LED3 turns OFF only after the data stream stops and the timer finally expires — giving a real-time "transfer active" indicator.
 
 \noindent
 This was implemented using Zephyr's \textbf{delayable work queue} mechanism 
@@ -333,7 +333,7 @@ Once the build completes successfully, flash the binary to the nRF5340 developme
 \end{enumerate}
 
 \begin{lstlisting}[language=bash]
-cd /nrf/samples/bluetooth/peripheral_uart
+cd ~/ncs/v3.2.2/nrf/samples/bluetooth/peripheral_uart
 west flash
 \end{lstlisting}
 
@@ -469,19 +469,19 @@ Switch on Bluetooth on both devices.
 \subsection{Installing the Packages}
 \begin{lstlisting}[language=bash]
 sudo apt update
-sudo apt install bluez bluetooth bluetooth-obex obexftp gnome-bluetooth
+sudo apt install bluez bluetooth obexftp gnome-bluetooth-2.0
 sudo systemctl start bluetooth
 \end{lstlisting}
 
 \subsection{Connecting the sender to the receiver}
 On the sender device:
 \begin{lstlisting}[language=bash]
-bluetoothctl scan on
-\end{lstlisting}
-Note the MAC address: AA:BB:CC:DD:EE:FF
-\begin{lstlisting}[language=bash]
 bluetoothctl
+power on
+scan on
 \end{lstlisting}
+Note the MAC address: AA:BB:CC:DD:EE:FF \\
+
 Inside the interactive terminal:
 \begin{lstlisting}[language=bash]
 pair AA:BB:CC:DD:EE:FF
